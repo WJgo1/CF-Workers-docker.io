@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>诊断工具 - Markdown Reader</title>
+<style>
+body { font-family: sans-serif; padding: 40px; background: #f6f8fa; }
+h1 { color: #1f2328; }
+h2 { color: #1f2328; margin-top: 30px; border-bottom: 1px solid #d0d7de; padding-bottom: 8px; }
+.pass { color: #1a7f37; }
+.fail { color: #d1242f; }
+.info { color: #656d76; font-size: 13px; }
+code { background: #eef1f4; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+button { padding: 8px 16px; font-size: 14px; cursor: pointer; border: 1px solid #d0d7de; border-radius: 6px; background: #fff; }
+button:hover { background: #f6f8fa; }
+.result { margin: 10px 0; padding: 12px; border-radius: 6px; }
+.pass-box { background: #dafbe1; border: 1px solid #1a7f37; }
+.fail-box { background: #ffebe9; border: 1px solid #d1242f; }
+table { border-collapse: collapse; margin-top: 10px; }
+td, th { border: 1px solid #d0d7de; padding: 8px 12px; font-size: 13px; }
+th { background: #f6f8fa; text-align: left; }
+</style>
+</head>
+<body>
+
+<h1>🔍 Markdown Reader 诊断工具</h1>
+<p class="info">点下面按钮检测文件是否完整，帮你定位问题。</p>
+
+<button onclick="runDiagnosis()">开始检测</button>
+
+<div id="result"></div>
+
+<h2>快速修复</h2>
+<ol>
+    <li>如果检测显示文件损坏 — 重新下载 <a href="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js" download>marked.min.js</a> 和 <a href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js" download>highlight.min.js</a>，放进 libs 目录</li>
+    <li>如果想绕开 file:// 限制 — 双击 <code>start.bat</code> 启动本地服务器</li>
+    <li>检查路径 — 确认 <code>libs/marked.min.js</code>、<code>libs/highlight.min.js</code>、<code>js/app.js</code> 三个文件在正确位置</li>
+</ol>
+
+<script>
+function checkFile(path) {
+    return new Promise(resolve => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('HEAD', path + '?t=' + Date.now(), true);
+        xhr.onload = () => resolve({ ok: xhr.status === 200, size: xhr.getResponseHeader('Content-Length') || '?' });
+        xhr.onerror = () => resolve({ ok: false, size: 0 });
+        xhr.send();
+    });
+}
+
+async function runDiagnosis() {
+    const el = document.getElementById('result');
+    el.innerHTML = '<p class="info">检测中...</p>';
+
+    const files = [
+        { path: 'libs/marked.min.js', expected: 35000, label: 'marked.min.js' },
+        { path: 'libs/highlight.min.js', expected: 120000, label: 'highlight.min.js' },
+        { path: 'js/app.js', expected: 10000, label: 'app.js' },
+        { path: 'css/style.css', expected: 5000, label: 'style.css' },
+        { path: 'index.html', expected: 2000, label: 'index.html (self)' },
+    ];
+
+    let html = '<table><tr><th>文件</th><th>状态</th><th>大小(bytes)</th><th>说明</th></tr>';
+    let allOk = true;
+
+    for (const f of files) {
+        const r = await checkFile(f.path);
+        const size = parseInt(r.size) || 0;
+        const ok = r.ok && size > f.expected;
+        const cls = ok ? 'pass' : 'fail';
+        const status = r.ok ? (size > f.expected ? '✅ 正常' : '⚠️ 文件过小') : '❌ 找不到';
+        const note = !r.ok ? '文件丢失或路径错误' : (size < f.expected ? '可能下载不完整，请重新下载' : '');
+        if (!ok) allOk = false;
+        html += `<tr><td><code>${f.path}</code></td><td class="${cls}">${status}</td><td>${r.ok ? size : '—'}</td><td class="info">${note}</td></tr>`;
+    }
+    html += '</table>';
+
+    // 检查库加载
+    const markedOk = typeof marked !== 'undefined' && typeof marked.parse === 'function';
+    const hljsOk = typeof hljs !== 'undefined' && typeof hljs.listLanguages === 'function';
+
+    html += '<h2>库加载检测</h2>';
+    html += '<table>';
+    html += `<tr><td>marked 库</td><td class="${markedOk ? 'pass' : 'fail'}">${markedOk ? '✅ 加载成功' : '❌ 未加载'}</td></tr>`;
+    html += `<tr><td>hljs 库</td><td class="${hljsOk ? 'pass' : 'fail'}">${hljsOk ? '✅ 加载成功 (' + hljs.listLanguages().length + ' langs)' : '❌ 未加载'}</td></tr>`;
+    html += '</table>';
+
+    if (markedOk) {
+        const test = marked.parse('# Diagnose Test');
+        html += '<p class="info">marked.parse 测试: ' + test.trim() + '</p>';
+    }
+
+    // 总结
+    html += '<h2>总结</h2>';
+    if (allOk && markedOk && hljsOk) {
+        html += '<div class="result pass-box"><strong>✅ 一切正常！</strong><br>文件完整，库加载成功。回到 <a href="index.html">index.html</a> 应该能正常使用。</div>';
+    } else if (!allOk) {
+        html += '<div class="result fail-box"><strong>❌ 部分文件缺失或损坏</strong><br>请点击表格中失败文件的下载链接，重新下载并覆盖。</div>';
+    } else {
+        html += '<div class="result fail-box"><strong>❌ 库未加载</strong><br>可能是文件编码问题，请尝试用 start.bat 启动本地服务器访问。</div>';
+    }
+
+    el.innerHTML = html;
+}
+</script>
+</body>
+</html>
