@@ -130,16 +130,86 @@
         </div>
     </div>
 
-    <script src="libs/marked.min.js" onerror="document.getElementById('error-overlay').hidden=false;document.getElementById('error-msg').innerHTML+='<br><br>❌ <b>libs/marked.min.js</b> 加载失败！'"></script>
-    <script src="libs/highlight.min.js" onerror="document.getElementById('error-msg').innerHTML+='<br>❌ <b>libs/highlight.min.js</b> 加载失败！'"></script>
-    <script src="js/app.js" onerror="document.getElementById('error-overlay').hidden=false;document.getElementById('error-msg').innerHTML+='<br>❌ <b>js/app.js</b> 加载失败！'"></script>
+    <div id="debug-info" style="position:fixed;top:0;left:0;right:0;background:#1f2328;color:#f0f6fc;font-family:Consolas,monospace;font-size:12px;padding:10px;z-index:99998;white-space:pre-wrap;line-height:1.5;" hidden></div>
     <script>
-        // 检查库是否加载成功
-        window.addEventListener('load', function() {
-            if (typeof window.marked === 'undefined' || typeof window.hljs === 'undefined') {
-                document.getElementById('error-overlay').hidden = false;
-            }
+        // 实时 debug — 记录每一步状态
+        var debugLog = [];
+        function d(msg) {
+            debugLog.push(msg);
+            try {
+                console.log('[DEBUG]', msg);
+                var dbg = document.getElementById('debug-info');
+                if (dbg) {
+                    dbg.hidden = false;
+                    dbg.textContent = debugLog.join('\n');
+                }
+            } catch(e) {}
+        }
+        d('开始加载脚本...');
+    </script>
+    <script src="libs/marked.min.js"
+        onerror="d('❌ marked.min.js 加载失败 (HTTP 或语法错误)')"
+        onload="d('✅ marked.min.js 加载完成, typeof marked = ' + typeof marked)"></script>
+    <script src="libs/highlight.min.js"
+        onerror="d('❌ highlight.min.js 加载失败')"
+        onload="d('✅ highlight.min.js 加载完成, typeof hljs = ' + typeof hljs)"></script>
+    <script src="js/app.js"
+        onerror="d('❌ js/app.js 加载失败')"
+        onload="d('✅ js/app.js 加载完成')"></script>
+    <script>
+        // 详细检查挂载位置
+        d('--- 挂载位置检查 ---');
+        d('window.marked = ' + typeof window.marked);
+        d('window.hljs   = ' + typeof window.hljs);
+        d('globalThis.marked = ' + typeof (window.globalThis?.marked));
+        d('globalThis.hljs   = ' + typeof (window.globalThis?.hljs));
+        d('self.marked = ' + typeof (window.self?.marked));
+        d('self.hljs   = ' + typeof (window.self?.hljs));
+        d('document.marked = ' + typeof (window.document?.marked));
+        d('globalThis === window? ' + (window.globalThis === window));
+        d('self === window? ' + (window.self === window));
+
+        // 真正的根因查找
+        var allGlobals = Object.getOwnPropertyNames(window);
+        var found = allGlobals.filter(function(name) {
+            var v = window[name];
+            return v && typeof v === 'object' && (v.parse || v.listLanguages);
         });
+        d('具有 parse 或 listLanguages 的全局对象: [' + found.join(', ') + ']');
+
+        // 如果 marked 不在 window 但可能在别处，尝试赋值
+        if (typeof window.marked === 'undefined' && typeof window.globalThis !== 'undefined' && typeof window.globalThis.marked !== 'undefined') {
+            d('⚠️ marked 在 globalThis 上但不在 window 上，正在修复...');
+            window.marked = window.globalThis.marked;
+        }
+        if (typeof window.hljs === 'undefined' && typeof window.globalThis !== 'undefined' && typeof window.globalThis.hljs !== 'undefined') {
+            d('⚠️ hljs 在 globalThis 上但不在 window 上，正在修复...');
+            window.hljs = window.globalThis.hljs;
+        }
+
+        // 最终判断
+        var mOk = typeof window.marked !== 'undefined';
+        var hOk = typeof window.hljs !== 'undefined';
+        d('--- 最终结果 ---');
+        d('window.marked 可用: ' + mOk);
+        d('window.hljs 可用: ' + hOk);
+
+        if (!mOk || !hOk) {
+            d('❌ 库加载失败 — 可能原因:');
+            d('   1. 文件损坏 (请用 check.html 重新下载)');
+            d('   2. 浏览器缓存旧版本 (Ctrl+Shift+R 强制刷新)');
+            d('   3. 浏览器被安全插件拦截了脚本');
+            document.getElementById('error-overlay').hidden = false;
+            document.getElementById('error-msg').innerHTML +=
+                '<br><br><b>诊断信息:</b>' +
+                '<br>marked: <code>' + (mOk ? '✅ OK' : '❌ 未找到') + '</code>' +
+                '<br>hljs: <code>' + (hOk ? '✅ OK' : '❌ 未找到') + '</code>';
+        } else {
+            d('✅ 一切正常！隐藏 debug 面板...');
+            setTimeout(function() {
+                try { document.getElementById('debug-info').hidden = true; } catch(e) {}
+            }, 3000);
+        }
     </script>
 </body>
 </html>
