@@ -122,8 +122,24 @@
         </div>
     </div>
 
-    <script src="libs/marked.min.js"></script>
-    <script src="libs/highlight.min.js"></script>
-    <script src="js/app.js"></script>
+    <!-- 错误提示遮罩（如果 JS 加载失败会显示） -->
+    <div id="error-overlay" hidden style="position:fixed;top:0;left:0;right:0;bottom:0;background:#0d1117;color:#e6edf3;z-index:99999;display:flex;align-items:center;justify-content:center;font-family:sans-serif;">
+        <div style="max-width:500px;padding:40px;text-align:center;">
+            <h2 style="color:#f85149;margin-bottom:20px;">⚠️ 加载失败</h2>
+            <p id="error-msg" style="line-height:1.6;color:#8b949e;">Markdown 阅读器脚本加载失败。<br>请确认 <code>libs/marked.min.js</code>、<code>libs/highlight.min.js</code>、<code>js/app.js</code> 这几个文件存在且完整。</p>
+        </div>
+    </div>
+
+    <script src="libs/marked.min.js" onerror="document.getElementById('error-overlay').hidden=false;document.getElementById('error-msg').innerHTML+='<br><br>❌ <b>libs/marked.min.js</b> 加载失败！'"></script>
+    <script src="libs/highlight.min.js" onerror="document.getElementById('error-msg').innerHTML+='<br>❌ <b>libs/highlight.min.js</b> 加载失败！'"></script>
+    <script src="js/app.js" onerror="document.getElementById('error-overlay').hidden=false;document.getElementById('error-msg').innerHTML+='<br>❌ <b>js/app.js</b> 加载失败！'"></script>
+    <script>
+        // 检查库是否加载成功
+        window.addEventListener('load', function() {
+            if (typeof window.marked === 'undefined' || typeof window.hljs === 'undefined') {
+                document.getElementById('error-overlay').hidden = false;
+            }
+        });
+    </script>
 </body>
 </html>
