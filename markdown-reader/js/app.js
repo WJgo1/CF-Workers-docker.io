@@ -57,7 +57,10 @@ const els = {
 };
 
 // ========== 初始化 ==========
+let initialized = false;
 function init() {
+    if (initialized) return;
+    initialized = true;
     applyTheme();
     applyFontSize();
     applyLayout();
@@ -77,14 +80,12 @@ function setupMarked() {
         mangle: false,
     });
 
-    // 自定义渲染器，添加锚点和任务列表支持
+    // 自定义渲染器，添加锚点支持（marked v12 API: heading(text, level, raw)）
     const renderer = new marked.Renderer();
 
-    renderer.heading = function ({ tokens, depth }) {
-        const text = this.parser.parseInline(tokens);
-        const rawText = tokens.map(t => t.raw || t.text || '').join('');
-        const id = generateHeadingId(rawText);
-        return `<h${depth} id="${id}">${text}<a href="#${id}" class="header-anchor">#</a></h${depth}>`;
+    renderer.heading = function (text, level, raw) {
+        const id = generateHeadingId(raw);
+        return `<h${level} id="${id}">${text}<a href="#${id}" class="header-anchor">#</a></h${level}>`;
     };
 
     marked.use({ renderer });
