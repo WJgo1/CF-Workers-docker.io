@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reliability-agent"
+version = "0.1.0"
+description = "飞书多维表格数据 -> 可靠性预计分析 -> Excel/飞书表格同步 的本地化自动化工具"
+requires-python = ">=3.10"
+dependencies = [
+    "pandas>=2.0",
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "matplotlib>=3.7",
+    "openpyxl>=3.1",
+    "Pillow>=10.0",
+    "requests>=2.31",
+    "PyYAML>=6.0",
+    "APScheduler>=3.10,<4",
+]
+
+[tool.setuptools.packages.find]
+include = ["reliability_agent*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

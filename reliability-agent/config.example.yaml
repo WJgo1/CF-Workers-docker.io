@@ -1,0 +1,70 @@
+app:
+  name: reliability-agent
+  timezone: Asia/Shanghai
+
+feishu:
+  # 企业飞书使用 https://open.feishu.cn；如走企业网关/代理，改成对应地址
+  base_url: https://open.feishu.cn
+  # App ID / App Secret 建议只放在 .env（FEISHU_APP_ID / FEISHU_APP_SECRET），此处留空
+  request:
+    timeout_seconds: 30
+    max_retries: 3
+    retry_backoff_seconds: 2
+
+source:
+  type: bitable
+  # 多维表格地址形如：https://xxx.feishu.cn/base/{app_token}?table={table_id}&view={view_id}
+  app_token: "bascnxxxxxxxxxxxxxxxx"
+  table_id: "tblxxxxxxxxxxxxxx"
+  view_id: null
+  page_size: 500
+  # 日期字段（多维表格返回毫秒时间戳，导出 Excel 时转成可读时间）
+  date_fields:
+    - "更新时间"
+  # 可选：原始字段名 -> 分析用列名
+  column_map: {}
+  incremental:
+    # hash: 每次全量拉取，按记录指纹只处理新增/变更（稳妥，默认）
+    # field: 按 updated_field 时间字段服务端过滤增量拉取（表大时更快）
+    mode: hash
+    updated_field: "更新时间"
+    # 每 N 次同步做一次全量对账，清理已被删除的记录
+    full_refresh_every: 7
+    # 增量拉取时向前多取一段时间，防止边界漏记录
+    overlap_seconds: 3600
+
+analysis:
+  # 插件格式：module:function 或 path/to/file.py:function
+  # 默认使用内置韦布尔示例，实际请替换为你自己的可靠性预计代码，例如 "plugins/my_reliability.py:analyze"
+  plugin: "reliability_agent.analysis.plugins.weibull_example:analyze"
+  options:
+    # 传给插件的自定义参数，字段名需与表格列名一致
+    time_field: "使用时长(h)"
+    failure_field: "是否失效"
+    group_field: "产品型号"
+    reliability_times: [1000, 3000, 5000]
+    max_groups: 8
+
+output:
+  excel:
+    dir: "./output"
+    filename_template: "reliability_{run_id}.xlsx"
+    keep_days: 90
+    max_preview_rows: 20000
+  feishu_sheet:
+    enabled: true
+    # 电子表格地址：https://xxx.feishu.cn/sheets/{spreadsheet_token}
+    spreadsheet_token: "shtcnxxxxxxxxxxxxxxxx"
+    sheet_name: "可靠性分析结果"
+    clear_before_write: true
+    chunk_rows: 500
+
+schedule:
+  enabled: true
+  # 标准 5 段 cron（分 时 日 月 周），每天 08:00 执行
+  cron: "0 8 * * *"
+  run_on_start: false
+
+storage:
+  db_path: "./data/state.db"
+  mirror_dir: "./data/mirror"
